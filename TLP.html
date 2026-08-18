@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A small pastel puzzle adventure.">
+    <title>The Last Puzzle</title>
+    <link rel="stylesheet" href="TLPstyle.css">
+</head>
+<body>
+    <main class="login-screen" aria-labelledby="gameTitle">
+        <div class="login-decorations" aria-hidden="true">
+            <span class="float-item item-1">🍓</span><span class="float-item item-2">🌸</span>
+            <span class="float-item item-3">💗</span><span class="float-item item-4">✨</span>
+            <span class="float-item item-5">🌷</span><span class="float-item item-6">🍓</span>
+            <span class="float-item item-7">♡</span><span class="float-item item-8">✨</span>
+        </div>
+        <section class="login-box">
+            <p class="system-status">♡ PUZZLE WORLD ONLINE ♡</p>
+            <h1 id="gameTitle">LOVE PUZZLE</h1>
+            <p class="subtitle">Some secrets are meant to stay hidden.</p>
+            <div class="message"><p>“Somewhere in this game, a secret is waiting for you.”</p><span>— IDIBWIL</span></div>
+            <form id="loginForm">
+                <label for="username">IDENTITY</label>
+                <input id="username" type="text" placeholder="Enter your username" autocomplete="username" required>
+                <label for="password">ACCESS CODE</label>
+                <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+                <button type="submit">ENTER THE SYSTEM</button>
+            </form>
+            <p id="loginMessage" class="status-message" aria-live="polite"></p>
+        </section>
+    </main>
+    <script src="TLPgame.js"></script>
+</body>
+</html>
