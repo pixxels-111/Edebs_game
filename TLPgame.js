@@ -13,7 +13,8 @@ const state = {
     seconds: 0,
     timer: null,
     locked: false,
-    audio: null
+    audio: null,
+    music: null
 };
 
 const escapeHtml = value =>
@@ -50,6 +51,7 @@ function setScreen(markup) {
     clearInterval(state.timer);
     state.timer = null;
     document.body.innerHTML = markup;
+    ensureMusicButton();
 }
 
 function soundEnabled() {
@@ -126,6 +128,188 @@ function playTone(kind = "soft") {
     }
 }
 
+function createBackgroundTone(ctx, frequency, start, duration, volume) {
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, start);
+
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(volume, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+
+    oscillator.start(start);
+    oscillator.stop(start + duration + 0.03);
+}
+
+function ensureMusicButton() {
+    const existing = document.getElementById("musicButton");
+
+    if (existing) {
+        existing.textContent = soundEnabled() ? "🔊 MUSIC" : "🔇 MUSIC";
+        return existing;
+    }
+
+    const button = document.createElement("button");
+    button.id = "musicButton";
+    button.type = "button";
+    button.className = "music-button";
+    button.textContent = soundEnabled() ? "🔊 MUSIC" : "🔇 MUSIC";
+
+    button.addEventListener("click", () => {
+        const enabled = soundEnabled();
+        localStorage.setItem(KEY.sound, enabled ? "off" : "on");
+        button.textContent = enabled ? "🔇 MUSIC" : "🔊 MUSIC";
+        updateBackgroundMusic();
+
+        if (!enabled) {
+            playTone("soft");
+        }
+    });
+
+    document.body.appendChild(button);
+    return button;
+}
+
+function initBackgroundMusic() {
+    if (state.music) return;
+
+    const audio = document.getElementById("bgMusic");
+
+    if (audio) {
+        audio.volume = 0.35;
+        audio.muted = !soundEnabled();
+    }
+
+    try {
+        const AudioContextClass =
+            window.AudioContext ||
+            window.webkitAudioContext;
+
+        if (!AudioContextClass) return;
+
+        const ctx = new AudioContextClass();
+        const master = ctx.createGain();
+
+        master.gain.value = 0;
+        master.connect(ctx.destination);
+
+        const melody = [
+            261.63, 329.63, 392.0, 523.25,
+            392.0, 329.63, 293.66, 329.63
+        ];
+
+        let step = 0;
+
+        const playStep = () => {
+            if (!soundEnabled() || !state.music?.running || ctx.state === "suspended") return;
+
+            const now = ctx.currentTime;
+            const main = melody[step % melody.length];
+            const harmony = melody[(step + 2) % melody.length] / 2;
+
+            createBackgroundTone(ctx, main, now, 0.25, 0.035);
+            createBackgroundTone(ctx, harmony, now + 0.08, 0.22, 0.018);
+
+            step++;
+        };
+
+        const startMusic = async () => {
+            if (!soundEnabled()) {
+                master.gain.value = 0;
+                state.music.running = false;
+                if (audio) {
+                    audio.pause();
+                    audio.muted = true;
+                }
+                ensureMusicButton();
+                return;
+            }
+
+            try {
+                if (ctx.state === "suspended") {
+                    await ctx.resume();
+                }
+            } catch (_) {
+                // Browsers may block resume until a user gesture.
+            }
+
+            if (audio) {
+                audio.muted = false;
+                audio.play().catch(() => {
+                    // Browser blocked autoplay; the fallback synth will keep the vibe alive.
+                });
+            }
+
+            master.gain.value = 0.04;
+            state.music.running = true;
+
+            if (!state.music.timer) {
+                state.music.timer = setInterval(playStep, 420);
+            }
+
+            ensureMusicButton();
+        };
+
+        state.music = {
+            ctx,
+            master,
+            timer: null,
+            running: false,
+            resume: startMusic,
+            start: startMusic
+        };
+
+        const trigger = () => {
+            startMusic();
+            document.body.classList.add("music-ready");
+        };
+
+        document.addEventListener("pointerdown", trigger, { once: true });
+        document.addEventListener("keydown", trigger, { once: true });
+
+        ensureMusicButton();
+
+    } catch (_) {
+        // Audio is optional; do nothing if the browser blocks it.
+    }
+}
+
+function updateBackgroundMusic() {
+    const audio = document.getElementById("bgMusic");
+
+    if (audio) {
+        audio.muted = !soundEnabled();
+        if (soundEnabled()) {
+            audio.play().catch(() => {});
+        } else {
+            audio.pause();
+        }
+    }
+
+    if (!state.music || !state.music.master) return;
+
+    if (!soundEnabled()) {
+        state.music.master.gain.value = 0;
+        state.music.running = false;
+        if (state.music.ctx && state.music.ctx.state === "running") {
+            state.music.ctx.suspend().catch(() => {});
+        }
+        return;
+    }
+
+    if (state.music.ctx && state.music.ctx.state === "suspended") {
+        state.music.ctx.resume().catch(() => {});
+    }
+
+    state.music.master.gain.value = 0.04;
+    state.music.running = true;
+}
+
 function bindSoundButton() {
     const button =
         document.getElementById("soundToggle");
@@ -142,6 +326,8 @@ function bindSoundButton() {
 
         button.textContent =
             enabled ? "🔇" : "🔊";
+
+        updateBackgroundMusic();
 
         if (!enabled) {
             playTone("soft");
@@ -544,6 +730,7 @@ function renderLogin() {
     `;
 
     bindLogin();
+    initBackgroundMusic();
 }
 function adjacent(index) {
 
@@ -893,7 +1080,7 @@ function renderPuzzleTwo() {
                 </p>
 
                 <h1>
-                    CAN YOU FIND LOVE? 🔎
+                    CAN YOU FIND THE WORD? 🔎
                 </h1>
 
                 <p class="question">
